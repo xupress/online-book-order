@@ -315,7 +315,7 @@ const PAY_DETAILS = {
 const WEB3FORMS_KEY = "6c15ca21-9b79-453e-8602-5055b6ba0b9a";
 
 /* ── REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL ── */
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwjoW8ebWK9UPk8HotcFv6uCXWwk9l8RnFFnAqXwA43OBNaRVHSUJ_UrNZqrUFrCX2jTw/exec";
+const SHEETS_URL = "https://script.google.com/a/macros/xu.edu.ph/s/AKfycbw5wsQLrt-xmmgLepZi37LfYNOvryDxAIHFmXwimHVQos1KpGzYMlk_bifCgFCuCBthsA/exec";
 
 let rowCount = 0;
 
@@ -466,6 +466,7 @@ async function submitOrder() {
   try {
     const formData = new FormData();
     formData.append('access_key', WEB3FORMS_KEY);
+    formData.append('botcheck', '');
     formData.append('subject', `New Book Order — ${data.fname} ${data.lname} (${timestamp})`);
     formData.append('from_name', 'XU Press Book Order');
     formData.append('name', `${data.fname} ${data.lname}`);
@@ -487,22 +488,41 @@ async function submitOrder() {
     emailOk = result.success;
   } catch (e) { console.warn('Web3Forms error:', e); }
 
-  /* 2. Google Sheets — record submission */
+  /* 2. Google Sheets — record submission via GET (avoids CORS preflight) */
   try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
+    const params = new URLSearchParams({
+      timestamp:    data.timestamp,
+      fname:        data.fname,
+      lname:        data.lname,
+      email:        data.email,
+      phone:        data.phone,
+      addr:         data.addr,
+      city:         data.city,
+      province:     data.province,
+      region:       data.region,
+      zip:          data.zip,
+      kinaadman:    data.kinaadman,
+      orderSummary: data.orderSummary,
+      total:        data.total,
+      payMethod:    data.payMethod,
+      refNum:       data.refNum,
+      notes:        data.notes,
+    });
+    await fetch(SHEETS_URL + '?' + params.toString(), {
+      method: 'GET',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
     });
     sheetsOk = true;
   } catch (e) { console.warn('Sheets error:', e); }
 
-  /* Show success regardless (form data is valid; backend issues shouldn't block UX) */
+  /* Show success — also warn if email failed */
   document.getElementById('order-form').style.display = 'none';
   const s = document.getElementById('success-box');
   s.style.display = 'block';
   s.scrollIntoView({ behavior: 'smooth' });
+  if (!emailOk) {
+    console.warn('Web3Forms did not confirm success. Check access key or account verification.');
+  }
 }
 
 /* Keyboard support for pay cards */
